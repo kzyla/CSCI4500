@@ -4,9 +4,25 @@
 #include <unistd.h>
 #include <math.h>
 
+int iterations = 0; 
+int max_threads = 0;
 double logValue = 0;
+double value = 0;
+
+pthread_mutex_t lock; 
 
 void * log_function(void *data) {
+	long thread = *((long*)data);
+
+	for (int i = 0; i <= iterations; i++) {
+		int sign = thread % 2 == 0 ? -1 : 1;
+		int N = (i * max_threads) + thread;
+		
+		pthread_mutex_lock(&lock); 
+		value += (sign * pow((logValue - 1), N)) / N;
+		pthread_mutex_unlock(&lock); 
+	}
+
 	pthread_exit(data);
 }
 
@@ -22,24 +38,26 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
-	const int MAX_THREADS = atoi(argv[2]);	
-	// const int ITERATIONS = atoi(argv[3]);
-
+	max_threads = atoi(argv[2]);	
+	iterations = atoi(argv[3]);
 	logValue = VALUE;
 
-	pthread_t threadID_table[MAX_THREADS]; 
+	pthread_t threadID_table[max_threads]; 
+	long threads[max_threads];
 
-	for (int j = 0; j < MAX_THREADS; j++) {
+	for (int i = 0; i < max_threads; i++) {
 		int thread_create_status = 0;	
 
-		thread_create_status = pthread_create(&threadID_table[j], NULL, log_function, NULL);
+		threads[i] = i + 1;
+		thread_create_status = pthread_create(&threadID_table[i], NULL, log_function, ((void*) &threads[i]));
 
 		if (thread_create_status != 0) {
 			printf("pthread_create error\n");
 		}
 	}
+	
 
-	for (int i = 0; i < MAX_THREADS; i++) {
+	for (int i = 0; i < max_threads; i++) {
 		int * thread_retval;
 		int   join_retval;
 		
@@ -49,8 +67,10 @@ int main(int argc, char *argv[]) {
 			printf("pthread join error: %d\n", join_retval);
 		}
 	}
+
+	pthread_mutex_destroy(&lock); 
 	
-	printf("%0.14f\n", logValue);
+	printf("%0.14f\n", value);
 	printf("%0.14f\n", log(VALUE));
 	return 0;
 }
